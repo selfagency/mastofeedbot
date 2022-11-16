@@ -22,7 +22,7 @@ jobs:
       - name: GitHub
         uses: 'selfagency/slackfeedbot@main'
         with:
-          rss-feed: https://www.githubstatus.com/history.rss
+          rss-feed: https://jewschool.com/feed
           api-endpoint: https://kibitz.cloud/api/v1/
           api-token: ${{ secrets.MASTODON_API_TOKEN }}
           cache-file: ${{ github.workspace }}/mastofeedbot/cache.json
