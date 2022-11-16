@@ -27,12 +27,14 @@ export async function main(): Promise<void> {
     try {
       rss = <FeedEntry[]>(
         await read(<string>rssFeed, undefined, {
-          headers: [
-            'User-Agent: Opera/9.60 (Windows NT 6.0; U; en) Presto/2.1.1',
-            'Accept: */*',
-            'Accept-Encoding: gzip, deflate',
-            'Connection: keep-alive'
-          ]
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            'User-Agent': 'Opera/9.60 (Windows NT 6.0; U; en) Presto/2.1.1',
+            Accept: '*/*',
+            'Accept-Encoding': 'gzip, deflate',
+            Connection: 'keep-alive'
+          }
         })
       ).entries;
       core.debug(JSON.stringify(`Pre-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
