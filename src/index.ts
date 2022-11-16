@@ -2,8 +2,7 @@ import { login, type MastoClient } from 'masto';
 import { readFile, writeFile } from 'fs/promises';
 import { SHA256Hash } from '@sohailalam2/abu';
 import * as core from '@actions/core';
-import Parser from 'rss-parser';
-import { Feed, Item } from '../types';
+import { type FeedEntry, read } from 'feed-reader';
 
 export async function main(): Promise<void> {
   try {
@@ -24,17 +23,9 @@ export async function main(): Promise<void> {
     core.debug(`cacheLimit: ${cacheLimit}`);
 
     // get the rss feed
-    let rss: Item[];
+    let rss: FeedEntry[];
     try {
-      const parser = new Parser({
-        headers: {
-          Accept: '*/*',
-          'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36 Edg/107.0.1418.42'
-        }
-      });
-
-      rss = (<Feed>await parser.parseURL(<string>rssFeed)).items;
+      rss = <FeedEntry[]>(await read(<string>rssFeed)).entries;
       core.debug(JSON.stringify(`Pre-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
     } catch (e) {
       core.setFailed(`Failed to parse RSS feed: ${(<Error>e).message}`);
@@ -53,7 +44,7 @@ export async function main(): Promise<void> {
     // filter out the cached items
     if (cache.length) {
       rss = rss?.filter(item => {
-        const hash = <string>new SHA256Hash().hash(item.link);
+        const hash = <string>new SHA256Hash().hash(<string>item.link);
         return !cache.includes(hash);
       });
     }
@@ -73,7 +64,7 @@ export async function main(): Promise<void> {
 
     // post the new items
     for (const item of rss) {
-      const hash = <string>new SHA256Hash().hash(item.link);
+      const hash = <string>new SHA256Hash().hash(<string>item.link);
       core.debug(`Posting ${item.title} with hash ${hash}`);
 
       // post the item
