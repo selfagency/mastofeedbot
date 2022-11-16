@@ -23,9 +23,15 @@ export async function main(): Promise<void> {
     core.debug(`cacheLimit: ${cacheLimit}`);
 
     // get the rss feed
-    let rss = await parser(<string>rssFeed);
-    core.debug(JSON.stringify(`Pre-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
-    
+    let rss;
+    try {
+      rss = await parser(<string>rssFeed);
+      core.debug(JSON.stringify(`Pre-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
+    } catch (e) {
+      core.setFailed(`Failed to parse RSS feed: ${(<Error>e).message}`);
+      return;
+    }
+
     // get the cache
     let cache: string[] = [];
     try {
