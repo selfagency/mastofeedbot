@@ -6,10 +6,10 @@ Mastofeedbot is a bot that posts RSS feeds to Mastodon via GitHub Actions.
 
 1. Go to `https://${YOUR_INSTANCE}/settings/applications/new` and add a new application.
 
-- Name it whatever you want.
-- The redirect URI is not important, so you can use `urn:ietf:wg:oauth:2.0:oob`.
-- The only permission required is `write:statuses`.
-- Save it, click on the application link, and grab the access token.
+  - Name it whatever you want.
+  - The redirect URI is not important, so you can use `urn:ietf:wg:oauth:2.0:oob`.
+  - The only permission required is `write:statuses`.
+  - Save it, click on the application link, and grab the access token.
 
 2. Create a new GitHub repository.
 3. Go to your repository settings at `https://github.com/${YOUR_REPO}/settings/secrets/actions/new`, and add a new
@@ -20,7 +20,8 @@ Mastofeedbot is a bot that posts RSS feeds to Mastodon via GitHub Actions.
 name: FeedBot
 on:
   schedule:
-    - cron: '*/5 * * * *'  # This will run every five minutes. Alter it using https://crontab.guru/.
+    # This will run every five minutes. Alter it using https://crontab.guru/.
+    - cron: '*/5 * * * *'  
 jobs:
   rss-to-mastodon:
     runs-on: ubuntu-latest
@@ -40,9 +41,14 @@ jobs:
       - name: GitHub
         uses: 'selfagency/mastofeedbot@v1'
         with:
+          # This is the RSS feed you want to publish
           rss-feed: https://www.githubstatus.com/history.rss
+          # This is your instance address
           api-endpoint: https://mastodon.social
+          # This is the secret you created earlier
           api-token: ${{ secrets.MASTODON_ACCESS_TOKEN }}
+          # This is a path to the cache file, using the above cache path
           cache-file: ${{ github.workspace }}/mastofeedbot/cache.json
 ```
 
+5. Commit and publish your changes.
