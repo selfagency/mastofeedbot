@@ -2,6 +2,7 @@ import { login, type MastoClient } from 'masto';
 import { readFile, writeFile } from 'fs/promises';
 import { SHA256Hash } from '@sohailalam2/abu';
 import * as core from '@actions/core';
+import mkdirp from 'mkdirp';
 import { type FeedEntry, read } from 'feed-reader';
 
 async function writeCache(cacheFile: string, cacheLimit: number, cache: string[]): Promise<void> {
@@ -11,6 +12,9 @@ async function writeCache(cacheFile: string, cacheLimit: number, cache: string[]
       core.notice(`Cache limit reached. Removing ${cache.length - cacheLimit} items.`);
       cache = cache.slice(cache.length - cacheLimit);
     }
+
+    // make sure the cache directory exists
+    await mkdirp(cacheFile.substring(0, cacheFile.lastIndexOf('/')));
 
     // write the cache
     await writeFile(cacheFile, JSON.stringify(cache));
