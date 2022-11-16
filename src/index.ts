@@ -1,8 +1,9 @@
 import { login, type MastoClient } from 'masto';
-import parser from 'rss-url-parser';
 import { readFile, writeFile } from 'fs/promises';
 import { SHA256Hash } from '@sohailalam2/abu';
 import * as core from '@actions/core';
+import Parser from 'rss-parser';
+import { Feed, Item } from '../types';
 
 export async function main(): Promise<void> {
   try {
@@ -23,9 +24,11 @@ export async function main(): Promise<void> {
     core.debug(`cacheLimit: ${cacheLimit}`);
 
     // get the rss feed
-    let rss;
+    let rss: Item[];
     try {
-      rss = await parser(<string>rssFeed);
+      const parser = new Parser();
+
+      rss = (<Feed>await parser.parseURL(<string>rssFeed)).items;
       core.debug(JSON.stringify(`Pre-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
     } catch (e) {
       core.setFailed(`Failed to parse RSS feed: ${(<Error>e).message}`);
