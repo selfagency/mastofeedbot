@@ -13,11 +13,11 @@ export async function main(): Promise<void> {
     const cacheFile = core.getInput('cache-file');
     const cacheLimit = parseInt(core.getInput('cache-limit'), 10);
 
-    // authenticate with mastodon
-    const masto = await login({
-      url: <string>apiEndpoint,
-      accessToken: <string>apiToken
-    });
+    core.debug(`rssFeed: ${rssFeed}`);
+    core.debug(`apiEndpoint: ${apiEndpoint}`);
+    core.debug(`apiToken: ${apiToken}`);
+    core.debug(`cacheFile: ${cacheFile}`);
+    core.debug(`cacheLimit: ${cacheLimit}`);
 
     // get the rss feed
     let rss = await parser(<string>rssFeed);
@@ -40,6 +40,12 @@ export async function main(): Promise<void> {
       });
     }
     core.debug(JSON.stringify(`Post-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
+
+    // authenticate with mastodon
+    const masto = await login({
+      url: <string>apiEndpoint,
+      accessToken: <string>apiToken
+    });
 
     // post the new items
     for (const item of rss) {

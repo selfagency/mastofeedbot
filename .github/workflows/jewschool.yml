@@ -21,7 +21,7 @@ jobs:
           key: feed-cache-i-${{ steps.generate-key.outputs.cache-key }}
           restore-keys: feed-cache-i-
 
-      - name: GitHub
+      - name: Jewschool.com
         uses: 'selfagency/mastofeedbot@main'
         with:
           rss-feed: https://jewschool.com/feed
