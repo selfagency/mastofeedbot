@@ -1,4 +1,4 @@
-import { login } from 'masto';
+import { login, type MastoClient } from 'masto';
 import parser from 'rss-url-parser';
 import { readFile, writeFile } from 'fs/promises';
 import { SHA256Hash } from '@sohailalam2/abu';
@@ -8,15 +8,18 @@ export async function main(): Promise<void> {
   try {
     // get variables from environment
     const rssFeed = core.getInput('rss-feed');
-    const apiEndpoint = core.getInput('api-endpoint');
-    const apiToken = core.getInput('api-token');
-    const cacheFile = core.getInput('cache-file');
-    const cacheLimit = parseInt(core.getInput('cache-limit'), 10);
-
     core.debug(`rssFeed: ${rssFeed}`);
+
+    const apiEndpoint = core.getInput('api-endpoint');
     core.debug(`apiEndpoint: ${apiEndpoint}`);
+
+    const apiToken = core.getInput('api-token');
     core.debug(`apiToken: ${apiToken}`);
+
+    const cacheFile = core.getInput('cache-file');
     core.debug(`cacheFile: ${cacheFile}`);
+
+    const cacheLimit = parseInt(core.getInput('cache-limit'), 10);
     core.debug(`cacheLimit: ${cacheLimit}`);
 
     // get the rss feed
@@ -42,10 +45,16 @@ export async function main(): Promise<void> {
     core.debug(JSON.stringify(`Post-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
 
     // authenticate with mastodon
-    const masto = await login({
-      url: <string>apiEndpoint,
-      accessToken: <string>apiToken
-    });
+    let masto: MastoClient;
+    try {
+      masto = await login({
+        url: <string>apiEndpoint,
+        accessToken: <string>apiToken
+      });
+    } catch (e) {
+      core.setFailed(`Failed to authenticate with Mastodon: ${(<Error>e).message}`);
+      return;
+    }
 
     // post the new items
     for (const item of rss) {
