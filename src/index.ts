@@ -1,69 +1,40 @@
 import { login, type MastoClient } from 'masto';
-import { readFile, stat, writeFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { SHA256Hash } from '@sohailalam2/abu';
 import * as core from '@actions/core';
 import { type FeedEntry, read } from 'feed-reader';
 
-export async function main(): Promise<void> {
+async function writeCache(cacheFile: string, cacheLimit: number, cache: string[]): Promise<void> {
   try {
-    // get variables from environment
-    const rssFeed = core.getInput('rss-feed');
-    core.debug(`rssFeed: ${rssFeed}`);
+    // limit the cache
+    if (cache.length > cacheLimit) {
+      core.notice(`Cache limit reached. Removing ${cache.length - cacheLimit} items.`);
+      cache = cache.slice(cache.length - cacheLimit);
+    }
 
-    const apiEndpoint = core.getInput('api-endpoint');
-    core.debug(`apiEndpoint: ${apiEndpoint}`);
+    // write the cache
+    await writeFile(cacheFile, JSON.stringify(cache));
+  } catch (e) {
+    core.setFailed(`Failed to write cache file: ${(<Error>e).message}`);
+  }
+}
 
-    const apiToken = core.getInput('api-token');
-    core.debug(`apiToken: ${apiToken}`);
+async function postItems(apiEndpoint: string, apiToken: string, rss: FeedEntry[], cache: string[]) {
+  // authenticate with mastodon
+  let masto: MastoClient;
+  try {
+    masto = await login({
+      url: apiEndpoint,
+      accessToken: apiToken
+    });
+  } catch (e) {
+    core.setFailed(`Failed to authenticate with Mastodon: ${(<Error>e).message}`);
+    return;
+  }
 
-    const cacheFile = core.getInput('cache-file');
-    core.debug(`cacheFile: ${cacheFile}`);
-
-    const cacheLimit = parseInt(core.getInput('cache-limit'), 10);
-    core.debug(`cacheLimit: ${cacheLimit}`);
-
-    // get the rss feed
-    let rss: FeedEntry[];
+  // post the new items
+  for (const item of rss) {
     try {
-      rss = <FeedEntry[]>(await read(rssFeed)).entries;
-      core.debug(JSON.stringify(`Pre-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
-    } catch (e) {
-      core.setFailed(`Failed to parse RSS feed: ${(<Error>e).message}`);
-      return;
-    }
-
-    // get the cache
-    let cache: string[] = [];
-    if ((await stat(cacheFile)).isFile()) {
-      cache = JSON.parse(await readFile(cacheFile, 'utf-8'));
-      core.debug(`Cache: ${JSON.stringify(cache)}`);
-    } else {
-      core.notice(`Cache file not found. Creating new cache file at ${cacheFile}.`);
-    }
-
-    // filter out the cached items
-    if (cache.length) {
-      rss = rss?.filter(item => {
-        const hash = <string>new SHA256Hash().hash(<string>item.link);
-        return !cache.includes(hash);
-      });
-    }
-    core.debug(JSON.stringify(`Post-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
-
-    // authenticate with mastodon
-    let masto: MastoClient;
-    try {
-      masto = await login({
-        url: apiEndpoint,
-        accessToken: apiToken
-      });
-    } catch (e) {
-      core.setFailed(`Failed to authenticate with Mastodon: ${(<Error>e).message}`);
-      return;
-    }
-
-    // post the new items
-    for (const item of rss) {
       const hash = <string>new SHA256Hash().hash(<string>item.link);
       core.debug(`Posting ${item.title} with hash ${hash}`);
 
@@ -76,19 +47,73 @@ export async function main(): Promise<void> {
 
       // add the item to the cache
       cache.push(hash);
+    } catch (e) {
+      core.setFailed(`Failed to post item: ${(<Error>e).message}`);
     }
-
-    // limit the cache
-    if (cache.length > cacheLimit) {
-      core.notice(`Cache limit reached. Removing ${cache.length - cacheLimit} items.`);
-      cache = cache.slice(cache.length - cacheLimit);
-    }
-
-    // write the cache
-    await writeFile(cacheFile, JSON.stringify(cache));
-  } catch (error) {
-    core.setFailed((<Error>error).message);
   }
+}
+
+async function filterCachedItems(rss: FeedEntry[], cache: string[]): Promise<FeedEntry[]> {
+  if (cache.length) {
+    rss = rss?.filter(item => {
+      const hash = <string>new SHA256Hash().hash(<string>item.link);
+      return !cache.includes(hash);
+    });
+  }
+  core.debug(JSON.stringify(`Post-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
+  return rss;
+}
+
+async function getRss(rssFeed: string): Promise<FeedEntry[] | void> {
+  let rss: FeedEntry[];
+  try {
+    rss = <FeedEntry[]>(await read(rssFeed)).entries;
+    core.debug(JSON.stringify(`Pre-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
+    return rss;
+  } catch (e) {
+    core.setFailed(`Failed to parse RSS feed: ${(<Error>e).message}`);
+  }
+}
+
+async function getCache(cacheFile: string): Promise<string[]> {
+  let cache: string[] = [];
+  try {
+    cache = JSON.parse(await readFile(cacheFile, 'utf-8'));
+    core.debug(`Cache: ${JSON.stringify(cache)}`);
+    return cache;
+  } catch (e) {
+    core.notice(`Cache file not found. Creating new cache file at ${cacheFile}.`);
+    return cache;
+  }
+}
+
+export async function main(): Promise<void> {
+  // get variables from environment
+  const rssFeed = core.getInput('rss-feed');
+  core.debug(`rssFeed: ${rssFeed}`);
+  const apiEndpoint = core.getInput('api-endpoint');
+  core.debug(`apiEndpoint: ${apiEndpoint}`);
+  const apiToken = core.getInput('api-token');
+  core.debug(`apiToken: ${apiToken}`);
+  const cacheFile = core.getInput('cache-file');
+  core.debug(`cacheFile: ${cacheFile}`);
+  const cacheLimit = parseInt(core.getInput('cache-limit'), 10);
+  core.debug(`cacheLimit: ${cacheLimit}`);
+
+  // get the rss feed
+  let rss = await getRss(rssFeed);
+
+  // get the cache
+  const cache = await getCache(cacheFile);
+
+  // filter out the cached items
+  rss = await filterCachedItems(<FeedEntry[]>rss, cache);
+
+  // post the new items
+  await postItems(apiEndpoint, apiToken, <FeedEntry[]>rss, cache);
+
+  // write the cache
+  await writeCache(cacheFile, cacheLimit, cache);
 }
 
 (async () => await main())();
