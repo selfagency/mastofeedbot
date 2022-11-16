@@ -28,8 +28,8 @@ export async function main(): Promise<void> {
     try {
       const parser = new Parser({
         headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36 Edg/107.0.1418.42'
+          Accept: '*/*',
+          'User-Agent': 'xh/0.17.0'
         }
       });
 
