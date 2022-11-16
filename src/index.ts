@@ -25,7 +25,7 @@ export async function main(): Promise<void> {
     // get the rss feed
     let rss: FeedEntry[];
     try {
-      rss = <FeedEntry[]>(await read(<string>rssFeed)).entries;
+      rss = <FeedEntry[]>(await read(rssFeed)).entries;
       core.debug(JSON.stringify(`Pre-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
     } catch (e) {
       core.setFailed(`Failed to parse RSS feed: ${(<Error>e).message}`);
@@ -35,7 +35,7 @@ export async function main(): Promise<void> {
     // get the cache
     let cache: string[] = [];
     if ((await stat(cacheFile)).isFile()) {
-      cache = JSON.parse(await readFile(<string>cacheFile, 'utf-8'));
+      cache = JSON.parse(await readFile(cacheFile, 'utf-8'));
       core.debug(`Cache: ${JSON.stringify(cache)}`);
     } else {
       core.notice(`Cache file not found. Creating new cache file at ${cacheFile}.`);
@@ -54,8 +54,8 @@ export async function main(): Promise<void> {
     let masto: MastoClient;
     try {
       masto = await login({
-        url: <string>apiEndpoint,
-        accessToken: <string>apiToken
+        url: apiEndpoint,
+        accessToken: apiToken
       });
     } catch (e) {
       core.setFailed(`Failed to authenticate with Mastodon: ${(<Error>e).message}`);
@@ -85,7 +85,7 @@ export async function main(): Promise<void> {
     }
 
     // write the cache
-    await writeFile(<string>cacheFile, JSON.stringify(cache));
+    await writeFile(cacheFile, JSON.stringify(cache));
   } catch (error) {
     core.setFailed((<Error>error).message);
   }
