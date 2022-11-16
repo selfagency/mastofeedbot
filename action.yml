@@ -1,0 +1,26 @@
+name: 'MastoFeedBot'
+author: 'selfagency'
+description: 'Push RSS feed updates to Mastodon via GitHub Actions'
+branding:
+  icon: 'rss'
+  color: 'orange'
+inputs:
+  rss-feed:
+    description: 'RSS feed URL'
+    required: true
+  cache-file:
+    description: 'Cache file'
+    required: true
+  cache-limit:
+    description: 'Cache limit'
+    required: false
+    default: '100'
+  api-endpoint:
+    description: 'Mastodon API endpoint'
+    required: true
+  api-token:
+    description: 'Mastodon access token'
+    required: true
+runs:
+  using: 'node16'
+  main: 'dist/index.js'
