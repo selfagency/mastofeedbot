@@ -24,7 +24,8 @@ export async function main(): Promise<void> {
 
     // get the rss feed
     let rss = await parser(<string>rssFeed);
-
+    core.debug(JSON.stringify(`Pre-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
+    
     // get the cache
     let cache: string[] = [];
     try {
@@ -35,7 +36,6 @@ export async function main(): Promise<void> {
     }
 
     // filter out the cached items
-    core.debug(JSON.stringify(`Pre-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`));
     if (cache.length) {
       rss = rss?.filter(item => {
         const hash = <string>new SHA256Hash().hash(item.link);
