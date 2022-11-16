@@ -33,7 +33,9 @@ export async function main(): Promise<void> {
             'User-Agent': 'Opera/9.60 (Windows NT 6.0; U; en) Presto/2.1.1',
             Accept: '*/*',
             'Accept-Encoding': 'gzip, deflate',
-            Connection: 'keep-alive'
+            Connection: 'keep-alive',
+            Cookie:
+              '__cf_bm=8kBqUI7KA4i0nKeFCdUT2qSIKEQ_kZzCYKfT2irA1dI-1668578130-0-AUe1xRBXgU6OhrHnHA0IRFVzte5wTSc9R7N4ta/dhX8aK8CajN+yVVxIttCygXbEoZ15AW4h1Ljz0nZqu1654V29vZPkIXXhSXmVj706j/Uc2p0EoAEmXW56xFv9/PGtfw=='
           }
         })
       ).entries;
