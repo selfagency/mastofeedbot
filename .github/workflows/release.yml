@@ -11,12 +11,12 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       - name: Setup Node
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v2
         with:
           node-version: 16
 
@@ -27,14 +27,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           diff-search: true
 
-      # - name: Generate changelog
-      #   id: changelog
-      #   uses: 'mikepenz/release-changelog-builder-action@v2'
-      #   if: ${{ steps.check.outputs.changed == 'true' }}
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   continue-on-error: true
-
       - name: Create release
         uses: 'zendesk/action-create-release@v1'
         if: ${{ steps.check.outputs.changed == 'true' }}
@@ -42,7 +34,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ steps.check.outputs.version}}
-          # body: ${{ steps.changelog.outputs.changelog }}
           release_name: v${{ steps.check.outputs.version}}
           draft: false
           prerelease: false

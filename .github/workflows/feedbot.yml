@@ -11,16 +11,18 @@ jobs:
         with:
           script: |
             core.setOutput('cache-key', new Date().valueOf())
+
       - name: Retrieve cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ github.workspace }}/mastofeedbot
           key: feed-cache-i-${{ steps.generate-key.outputs.cache-key }}
           restore-keys: feed-cache-i-
+
       - name: GitHub
         uses: 'selfagency/slackfeedbot@main'
         with:
           rss-feed: https://www.githubstatus.com/history.rss
           api-endpoint: https://kibitz.cloud/api/v1/
-          api-token: ${{ secrets.MASTODON_ACCESS_TOKEN }}
+          api-token: ${{ secrets.MASTODON_API_TOKEN }}
           cache-file: ${{ github.workspace }}/mastofeedbot/cache.json
