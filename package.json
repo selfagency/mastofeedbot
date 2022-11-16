@@ -1,0 +1,32 @@
+{
+  "name": "@selfagency/mastodon-bots",
+  "version": "0.1.0",
+  "description": "Maston bots for Kibitz.Cloud",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/selfagency/mastodon-bots.git"
+  },
+  "keywords": [
+    "mastodon",
+    "fediverse",
+    "bot",
+    "rss"
+  ],
+  "author": "Daniel Sieradski <daniel@self.agency>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/selfagency/mastodon-bots/issues"
+  },
+  "homepage": "https://github.com/selfagency/mastodon-bots#readme",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.43.0",
+    "@typescript-eslint/parser": "^5.43.0",
+    "eslint": "^8.27.0",
+    "prettier": "^2.7.1",
+    "typescript": "^4.9.3"
+  }
+}
