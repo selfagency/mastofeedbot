@@ -1,8 +1,10 @@
-name: FeedBot
+name: Jewschool.com
 on:
+  #  schedule:
+  #    - cron: '*/5 * * * *'
   workflow_dispatch:
 jobs:
-  rss-to-mastodon:
+  jewschool:
     runs-on: ubuntu-latest
     steps:
       - name: Generate cache key
@@ -24,5 +26,5 @@ jobs:
         with:
           rss-feed: https://jewschool.com/feed
           api-endpoint: https://kibitz.cloud
-          api-token: ${{ secrets.MASTODON_API_TOKEN }}
+          api-token: ${{ secrets.JEWSCHOOL_MASTO_TOKEN }}
           cache-file: ${{ github.workspace }}/mastofeedbot/cache.json
