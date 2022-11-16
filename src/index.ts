@@ -1,5 +1,5 @@
 import { login, type MastoClient } from 'masto';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile, stat, writeFile } from 'fs/promises';
 import { SHA256Hash } from '@sohailalam2/abu';
 import * as core from '@actions/core';
 import { type FeedEntry, read } from 'feed-reader';
@@ -34,10 +34,10 @@ export async function main(): Promise<void> {
 
     // get the cache
     let cache: string[] = [];
-    try {
+    if ((await stat(cacheFile)).isFile()) {
       cache = JSON.parse(await readFile(<string>cacheFile, 'utf-8'));
       core.debug(`Cache: ${JSON.stringify(cache)}`);
-    } catch (e) {
+    } else {
       core.notice(`Cache file not found. Creating new cache file at ${cacheFile}.`);
     }
 
