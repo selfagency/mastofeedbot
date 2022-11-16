@@ -23,6 +23,6 @@ jobs:
         uses: 'selfagency/mastofeedbot@main'
         with:
           rss-feed: https://jewschool.com/feed
-          api-endpoint: https://kibitz.cloud/api/v1/
+          api-endpoint: https://kibitz.cloud
           api-token: ${{ secrets.MASTODON_API_TOKEN }}
           cache-file: ${{ github.workspace }}/mastofeedbot/cache.json
