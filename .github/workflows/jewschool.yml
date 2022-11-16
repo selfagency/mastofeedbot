@@ -24,7 +24,7 @@ jobs:
       - name: Jewschool.com
         uses: 'selfagency/mastofeedbot@main'
         with:
-          rss-feed: https://jewschool.com/feed
+          rss-feed: https://feeds.feedburner.com/jewschool/feed
           api-endpoint: https://kibitz.cloud
           api-token: ${{ secrets.JEWSCHOOL_MASTO_TOKEN }}
           cache-file: ${{ github.workspace }}/mastofeedbot/cache.json
