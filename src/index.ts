@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { SHA256Hash } from '@sohailalam2/abu';
 import * as core from '@actions/core';
 import mkdirp from 'mkdirp';
-import { type FeedEntry, read } from 'feed-reader';
+import { type FeedEntry, read } from '@extractus/feed-extractor';
 
 async function writeCache(cacheFile: string, cacheLimit: number, cache: string[]): Promise<void> {
   try {
