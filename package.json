@@ -42,7 +42,7 @@
   "dependencies": {
     "@actions/core": "^1.10.0",
     "@sohailalam2/abu": "^0.4.0",
-    "feed-reader": "^6.1.3",
+    "@extractus/feed-extractor": "^6.1.7",
     "masto": "^4.6.2",
     "mkdirp": "^1.0.4"
   }
