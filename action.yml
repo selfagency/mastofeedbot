@@ -8,6 +8,10 @@ inputs:
   rss-feed:
     description: 'RSS feed URL'
     required: true
+  status-visibility:
+    description: 'Visibility of the posted status (public | unlisted | private | direct)'
+    required: false
+    default: 'public'
   cache-file:
     description: 'Cache file'
     required: true
