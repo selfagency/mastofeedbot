@@ -1,4 +1,4 @@
-import { login, type MastoClient } from 'masto';
+import { login, StatusVisibility, type MastoClient } from 'masto';
 import { readFile, writeFile } from 'fs/promises';
 import { SHA256Hash } from '@sohailalam2/abu';
 import * as core from '@actions/core';
@@ -23,7 +23,7 @@ async function writeCache(cacheFile: string, cacheLimit: number, cache: string[]
   }
 }
 
-async function postItems(apiEndpoint: string, apiToken: string, rss: FeedEntry[], cache: string[]) {
+async function postItems(apiEndpoint: string, apiToken: string, rss: FeedEntry[], visibility: StatusVisibility, cache: string[]) {
   // authenticate with mastodon
   let masto: MastoClient;
   try {
@@ -45,8 +45,8 @@ async function postItems(apiEndpoint: string, apiToken: string, rss: FeedEntry[]
       // post the item
       const res = await masto.statuses.create({
         status: `${item.title} ${item.link}`,
-        visibility: 'public'
-      });
+        visibility,
+      }, hash);
       core.debug(`Response:\n\n${JSON.stringify(res, null, 2)}`);
 
       // add the item to the cache
@@ -103,6 +103,8 @@ export async function main(): Promise<void> {
   core.debug(`cacheFile: ${cacheFile}`);
   const cacheLimit = parseInt(core.getInput('cache-limit'), 10);
   core.debug(`cacheLimit: ${cacheLimit}`);
+  const statusVisibility: StatusVisibility = <StatusVisibility>core.getInput('status-visibility', { trimWhitespace: true });
+  core.debug(`statusVisibility: ${statusVisibility}`);
 
   // get the rss feed
   let rss = await getRss(rssFeed);
@@ -114,7 +116,7 @@ export async function main(): Promise<void> {
   rss = await filterCachedItems(<FeedEntry[]>rss, cache);
 
   // post the new items
-  await postItems(apiEndpoint, apiToken, <FeedEntry[]>rss, cache);
+  await postItems(apiEndpoint, apiToken, <FeedEntry[]>rss, statusVisibility, cache);
 
   // write the cache
   await writeCache(cacheFile, cacheLimit, cache);
