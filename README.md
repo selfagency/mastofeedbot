@@ -6,10 +6,10 @@ Mastofeedbot is a bot that posts RSS feeds to Mastodon via GitHub Actions.
 
 1. Go to `https://${YOUR_INSTANCE}/settings/applications/new` and add a new application.
 
-  - Name it whatever you want.
-  - The redirect URI is not important, so you can use `urn:ietf:wg:oauth:2.0:oob`.
-  - The only permission required is `write:statuses`.
-  - Save it, click on the application link, and grab the access token.
+- Name it whatever you want.
+- The redirect URI is not important, so you can use `urn:ietf:wg:oauth:2.0:oob`.
+- The only permission required is `write:statuses`.
+- Save it, click on the application link, and grab the access token.
 
 2. Create a new GitHub repository.
 3. Go to your repository settings at `https://github.com/${YOUR_REPO}/settings/secrets/actions/new`, and add a new
@@ -21,7 +21,7 @@ name: FeedBot
 on:
   schedule:
     # This will run every five minutes. Alter it using https://crontab.guru/.
-    - cron: '*/5 * * * *'  
+    - cron: '*/5 * * * *'
 jobs:
   rss-to-mastodon:
     runs-on: ubuntu-latest
