@@ -1,0 +1,5 @@
+repos:
+  - repo: git@github.com:jitsecurity/ide-pre-commit-hooks.git
+    rev: 0.0.3
+    hooks:
+      - id: vscode-jit
