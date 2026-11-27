@@ -12,10 +12,18 @@ import { main } from "../../src/index";
 // Mastodon are stubbed at their boundaries (extract / createRestAPIClient).
 vi.mock("@actions/core", () => ({
   getInput: vi.fn(),
+  getBooleanInput: vi.fn(),
   setFailed: vi.fn(),
   notice: vi.fn(),
   debug: vi.fn(),
   warning: vi.fn(),
+  summary: {
+    addHeading: vi.fn(),
+    addTable: vi.fn(),
+    addRaw: vi.fn(),
+    addBreak: vi.fn(),
+    write: vi.fn(),
+  },
 }));
 vi.mock("masto", () => ({
   createRestAPIClient: vi.fn(),
@@ -79,7 +87,10 @@ describe("main integration", () => {
       hashFor(oldLink),
       hashFor(newLink),
     ]);
-    await writeFileHelper(cacheFile, JSON.stringify([oldHash]));
+    await writeFileHelper(
+      cacheFile,
+      JSON.stringify({ lastRun: "2026-01-01T00:00:00.000Z", seen: [oldHash] })
+    );
     mockedExtract.mockResolvedValue({
       entries: [
         { title: "Old Post", link: oldLink },
@@ -98,18 +109,24 @@ describe("main integration", () => {
       accessToken: "test-token",
       url: "https://mastodon.test",
     });
-    const persisted = JSON.parse(
-      await readFile(cacheFile, "utf-8")
-    ) as string[];
-    expect(persisted).toEqual([oldHash, newHash]);
+    const persisted = JSON.parse(await readFile(cacheFile, "utf-8")) as {
+      seen: string[];
+    };
+    expect(persisted.seen).toEqual([oldHash, newHash]);
   });
 
-  it("does not post when every entry is already cached", async () => {
+  it("does not post when every entry is already cached or older than the last run", async () => {
     const [oldHash, newHash] = await Promise.all([
       hashFor(oldLink),
       hashFor(newLink),
     ]);
-    await writeFileHelper(cacheFile, JSON.stringify([oldHash, newHash]));
+    await writeFileHelper(
+      cacheFile,
+      JSON.stringify({
+        lastRun: "2026-11-28T00:00:00.000Z",
+        seen: [oldHash, newHash],
+      })
+    );
     mockedExtract.mockResolvedValue({
       entries: [
         { title: "Old Post", link: oldLink },
@@ -122,10 +139,6 @@ describe("main integration", () => {
     expect(mockedCore.notice).toHaveBeenCalledTimes(1);
     expect(mockedCore.notice).toHaveBeenCalledWith("No new items to post.");
     expect(create).not.toHaveBeenCalled();
-    const persisted = JSON.parse(
-      await readFile(cacheFile, "utf-8")
-    ) as string[];
-    expect(persisted).toEqual([oldHash, newHash]);
   });
 
   it("records baseline without posting on a cold cache", async () => {
@@ -142,10 +155,10 @@ describe("main integration", () => {
       "First run: feed baseline recorded. No items posted."
     );
     expect(create).not.toHaveBeenCalled();
-    const persisted = JSON.parse(
-      await readFile(cacheFile, "utf-8")
-    ) as string[];
-    expect(persisted).toEqual([hashFor(oldLink), hashFor(newLink)]);
+    const persisted = JSON.parse(await readFile(cacheFile, "utf-8")) as {
+      seen: string[];
+    };
+    expect(persisted.seen).toEqual([hashFor(oldLink), hashFor(newLink)]);
   });
 
   it("fails loudly without posting when the cache file is corrupt", async () => {
@@ -201,23 +214,32 @@ describe("main integration", () => {
       hashFor(newLink),
     ]);
     inputs.set("cache-limit", "1");
-    await writeFileHelper(cacheFile, JSON.stringify([firstHash, oldHash]));
+    await writeFileHelper(
+      cacheFile,
+      JSON.stringify({
+        lastRun: "2026-01-01T00:00:00.000Z",
+        seen: [firstHash, oldHash],
+      })
+    );
     mockedExtract.mockResolvedValue({
       entries: [{ title: "New Post", link: newLink }],
     } as unknown as Awaited<ReturnType<typeof extract>>);
 
     await main();
 
-    const persisted = JSON.parse(
-      await readFile(cacheFile, "utf-8")
-    ) as string[];
-    expect(persisted).toEqual([newHash]);
+    const persisted = JSON.parse(await readFile(cacheFile, "utf-8")) as {
+      seen: string[];
+    };
+    expect(persisted.seen).toEqual([newHash]);
   });
 
   it("skips caching for entries whose post fails", async () => {
     const oldHash = await hashFor(oldLink);
     const newHash = await hashFor(newLink);
-    await writeFileHelper(cacheFile, JSON.stringify([oldHash]));
+    await writeFileHelper(
+      cacheFile,
+      JSON.stringify({ lastRun: "2026-01-01T00:00:00.000Z", seen: [oldHash] })
+    );
     create.mockRejectedValue(new Error("API error"));
     mockedExtract.mockResolvedValue({
       entries: [{ title: "New Post", link: newLink }],
@@ -226,13 +248,13 @@ describe("main integration", () => {
     await main();
 
     expect(mockedCore.setFailed).toHaveBeenCalledWith(
-      "Failed to post item: API error"
+      "Failed to post 1 of 1 items. Last error: API error"
     );
-    const persisted = JSON.parse(
-      await readFile(cacheFile, "utf-8")
-    ) as string[];
-    expect(persisted).not.toContain(newHash);
-    expect(persisted).toEqual([oldHash]);
+    const persisted = JSON.parse(await readFile(cacheFile, "utf-8")) as {
+      seen: string[];
+    };
+    expect(persisted.seen).not.toContain(newHash);
+    expect(persisted.seen).toEqual([oldHash]);
   });
 });
 
