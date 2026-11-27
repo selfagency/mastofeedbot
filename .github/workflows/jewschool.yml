@@ -1,28 +1,28 @@
 name: Jewschool.com
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 jobs:
   jewschool:
     runs-on: ubuntu-latest
     steps:
       - name: Generate cache key
-        uses: actions/github-script@v6
+        uses: "actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71" # v9.0.0
         id: generate-key
         with:
           script: |
             core.setOutput('cache-key', new Date().valueOf())
 
       - name: Retrieve cache
-        uses: actions/cache@v3
+        uses: "actions/cache@caa296126883cff596d87d8935842f9db880ef25" # v5.1.0
         with:
           path: ${{ github.workspace }}/mastofeedbot
           key: feed-cache-${{ steps.generate-key.outputs.cache-key }}
           restore-keys: feed-cache-
 
       - name: Jewschool.com
-        uses: 'selfagency/mastofeedbot@main'
+        uses: "selfagency/mastofeedbot@main"
         with:
           rss-feed: https://feeds.feedburner.com/jewschool/feed
           api-endpoint: https://kibitz.cloud
