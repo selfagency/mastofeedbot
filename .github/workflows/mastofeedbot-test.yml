@@ -1,0 +1,65 @@
+name: MastoFeedBot test
+on:
+  workflow_dispatch:
+
+jobs:
+  feed:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - slug: githubstatus
+            feed: https://www.githubstatus.com/history.atom
+          - slug: tailscale
+            feed: https://status.tailscale.com/feed.rss
+          - slug: bunny
+            feed: https://status.bunny.net/history.atom
+          - slug: wasabi
+            feed: https://status.wasabi.com/history.atom
+          - slug: netcup
+            feed: https://www.netcup-status.de/feed/
+          - slug: racknerd
+            feed: https://status.racknerd.com/rss
+          - slug: cloudflare
+            feed: https://www.cloudflarestatus.com/history.atom
+          - slug: fivenines
+            feed: https://status.fivenines.io/feed.rss
+          - slug: onepassword
+            feed: https://status.1password.com/history.atom
+          - slug: resend
+            feed: https://resend-status.com/feed.rss
+    steps:
+      - name: Generate cache key
+        uses: 'actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71' # v9.0.0
+        id: generate-key
+        with:
+          script: |
+            core.setOutput('cache-key', new Date().valueOf())
+
+      - name: Retrieve cache
+        uses: 'actions/cache@caa296126883cff596d87d8935842f9db880ef25' # v5.1.0
+        with:
+          path: ${{ github.workspace }}/mastofeedbot
+          key: feed-cache-${{ matrix.slug }}-${{ steps.generate-key.outputs.cache-key }}
+          restore-keys: feed-cache-${{ matrix.slug }}-
+
+      - name: Seed cache if missing (all entries but latest, so the first run posts exactly one)
+        if: steps.cache.outputs['cache-hit'] != 'true'
+        run: |
+          if [ -f "${{ github.workspace }}/mastofeedbot/cache.json" ]; then
+            echo "cache restored from previous run"
+            exit 0
+          fi
+          npm install --no-save @extractus/feed-extractor@8.0.4
+          node -e "const {extract}=require('@extractus/feed-extractor');const {createHash}=require('node:crypto');const {writeFile}=require('node:fs/promises');extract('${{ matrix.feed }}').then(async f=>{const h=l=>createHash('sha256').update(String(l),'utf8').digest('hex');const keep=f.entries[f.entries.length-1];const cache=f.entries.filter(e=>e.link!==keep.link).map(e=>h(e.link));await writeFile('${{ github.workspace }}/mastofeedbot/cache.json',JSON.stringify(cache));console.log('seeded',cache.length,'of',f.entries.length,'| will post:',keep.title);})"
+
+      - name: Run MastoFeedBot
+        uses: 'selfagency/mastofeedbot@0f3e75a22e5224c6ab92a71bd283fd0fc65de9c0' # main at modernize PR #42 merge; bump deliberately after upstream changes
+        with:
+          rss-feed: ${{ matrix.feed }}
+          api-endpoint: ${{ secrets.MASTODON_TEST_ENDPOINT }}
+          api-token: ${{ secrets.MASTODON_TEST_TOKEN }}
+          cache-file: ${{ github.workspace }}/mastofeedbot/cache.json
+          cache-limit: '100'
+          status-visibility: 'public'
