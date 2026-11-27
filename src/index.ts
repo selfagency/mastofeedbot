@@ -6,6 +6,12 @@ import { extract } from "@extractus/feed-extractor";
 import { createRestAPIClient } from "masto";
 import { mkdirp } from "mkdirp";
 
+function sha256Hex(value: string | undefined | null): string {
+  return createHash("sha256")
+    .update(value ?? "", "utf8")
+    .digest("hex");
+}
+
 export async function writeCache(
   cacheFile: string,
   cacheLimit: number,
@@ -48,9 +54,7 @@ export async function postItems(
   // post the new items sequentially to preserve feed order and avoid Mastodon API rate limits
   for (const item of rss) {
     try {
-      const hash = createHash("sha256")
-        .update(item.link as string, "utf8")
-        .digest("hex");
+      const hash = sha256Hex(item.link);
 
       // post the item
       // biome-ignore lint/performance/noAwaitInLoops: sequential posting preserves feed order and respects API rate limits
@@ -78,9 +82,7 @@ export function filterCachedItems(
 
   const filteredRss: FeedEntry[] = [];
   for (const item of rss) {
-    const hash = createHash("sha256")
-      .update(item.link as string, "utf8")
-      .digest("hex");
+    const hash = sha256Hex(item.link);
     if (!cache.includes(hash)) {
       filteredRss.push(item);
     }
@@ -113,20 +115,22 @@ export async function getRss(
   }
 }
 
-export async function getCache(cacheFile: string): Promise<string[]> {
+export async function getCache(
+  cacheFile: string
+): Promise<{ cache: string[]; existed: boolean; failed: boolean }> {
   try {
     const cache = JSON.parse(await readFile(cacheFile, "utf-8")) as string[];
     core.debug(`Cache: ${JSON.stringify(cache)}`);
-    return cache;
+    return { cache, existed: true, failed: false };
   } catch (e) {
     if ((e as NodeJS.ErrnoException)?.code === "ENOENT") {
       core.notice(
         `Cache file not found. Creating new cache file at ${cacheFile}.`
       );
-      return [];
+      return { cache: [], existed: false, failed: false };
     }
     core.setFailed(`Failed to read cache file: ${(<Error>e).message}`);
-    return [];
+    return { cache: [], existed: false, failed: true };
   }
 }
 
@@ -161,7 +165,20 @@ export async function main(): Promise<void> {
   core.debug(`statusVisibility: ${statusVisibility}`);
 
   // get the cache
-  const cache = await getCache(cacheFile);
+  const { cache, existed, failed } = await getCache(cacheFile);
+
+  // a corrupt cache means we cannot dedupe: post nothing rather than the whole backlog
+  if (failed) {
+    return;
+  }
+
+  // first sighting of this cache: record everything as seen and post nothing
+  if (!existed) {
+    const baseline = (<FeedEntry[]>rss).map((entry) => sha256Hex(entry.link));
+    await writeCache(cacheFile, cacheLimit, [...cache, ...baseline]);
+    core.notice("First run: feed baseline recorded. No items posted.");
+    return;
+  }
 
   // filter out the cached items
   rss = filterCachedItems(<FeedEntry[]>rss, cache);

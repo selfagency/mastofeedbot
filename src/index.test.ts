@@ -38,8 +38,8 @@ vi.mock("@extractus/feed-extractor", () => ({
 }));
 
 // Real hashing: createHash is pure and deterministic, mirroring src/index.ts
-const sha256Hex = (link: string): string =>
-  createHash("sha256").update(link, "utf8").digest("hex");
+const sha256Hex = (link: string | undefined): string =>
+  createHash("sha256").update(String(link), "utf8").digest("hex");
 
 const mockedReadFile = vi.mocked(readFile);
 const mockedWriteFile = vi.mocked(writeFile);
@@ -58,20 +58,24 @@ describe("MastoFeedBot", () => {
   });
 
   describe("getCache", () => {
-    it("should return parsed cache if file exists", async () => {
+    it("should return existed true and parsed cache if file exists", async () => {
       const cacheData = ["hash1", "hash2"];
       mockedReadFile.mockResolvedValue(JSON.stringify(cacheData));
-      const cache = await getCache("cache.json");
+      const { cache, existed, failed } = await getCache("cache.json");
       expect(cache).toEqual(cacheData);
+      expect(existed).toBe(true);
+      expect(failed).toBe(false);
       expect(mockedReadFile).toHaveBeenCalledWith("cache.json", "utf-8");
     });
 
-    it("should return an empty array if file does not exist", async () => {
+    it("should return existed false if file does not exist", async () => {
       mockedReadFile.mockRejectedValue(
         Object.assign(new Error("File not found"), { code: "ENOENT" })
       );
-      const cache = await getCache("cache.json");
+      const { cache, existed, failed } = await getCache("cache.json");
       expect(cache).toEqual([]);
+      expect(existed).toBe(false);
+      expect(failed).toBe(false);
       expect(mockedCore.notice).toHaveBeenCalledWith(
         "Cache file not found. Creating new cache file at cache.json."
       );
@@ -79,8 +83,10 @@ describe("MastoFeedBot", () => {
 
     it("should fail loudly if the cache file contains invalid JSON", async () => {
       mockedReadFile.mockResolvedValue("not-json");
-      const cache = await getCache("cache.json");
+      const { cache, existed, failed } = await getCache("cache.json");
       expect(cache).toEqual([]);
+      expect(existed).toBe(false);
+      expect(failed).toBe(true);
       expect(mockedCore.setFailed).toHaveBeenCalledWith(
         expect.stringContaining("Failed to read cache file")
       );
@@ -290,6 +296,49 @@ describe("MastoFeedBot", () => {
         "Failed to parse RSS feed: Network error"
       );
       expect(mockedReadFile).not.toHaveBeenCalled();
+      expect(mockedCreateRestAPIClient).not.toHaveBeenCalled();
+      expect(mockedWriteFile).not.toHaveBeenCalled();
+    });
+
+    it("should record baseline without posting on first run", async () => {
+      mockedReadFile.mockRejectedValue(
+        Object.assign(new Error("File not found"), { code: "ENOENT" })
+      );
+      const feed = {
+        entries: [
+          { title: "Old Post", link: "http://example.com/old" },
+          { title: "New Post", link: "http://example.com/new" },
+        ],
+      } as unknown as FeedData;
+      mockedExtract.mockResolvedValue(feed);
+
+      await main();
+
+      expect(mockedCore.notice).toHaveBeenCalledWith(
+        "First run: feed baseline recorded. No items posted."
+      );
+      expect(mockedCreateRestAPIClient).not.toHaveBeenCalled();
+      expect(mockedWriteFile).toHaveBeenCalledWith(
+        "cache.json",
+        JSON.stringify([
+          sha256Hex("http://example.com/old"),
+          sha256Hex("http://example.com/new"),
+        ])
+      );
+    });
+
+    it("should post nothing and never write cache when cache is corrupt", async () => {
+      mockedReadFile.mockResolvedValue("not-json");
+      const feed = {
+        entries: [{ title: "New Post", link: "http://example.com/new" }],
+      } as unknown as FeedData;
+      mockedExtract.mockResolvedValue(feed);
+
+      await main();
+
+      expect(mockedCore.setFailed).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to read cache file")
+      );
       expect(mockedCreateRestAPIClient).not.toHaveBeenCalled();
       expect(mockedWriteFile).not.toHaveBeenCalled();
     });

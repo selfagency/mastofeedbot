@@ -128,6 +128,43 @@ describe("main integration", () => {
     expect(persisted).toEqual([oldHash, newHash]);
   });
 
+  it("records baseline without posting on a cold cache", async () => {
+    mockedExtract.mockResolvedValue({
+      entries: [
+        { title: "Old Post", link: oldLink },
+        { title: "New Post", link: newLink },
+      ],
+    } as unknown as Awaited<ReturnType<typeof extract>>);
+
+    await main();
+
+    expect(mockedCore.notice).toHaveBeenCalledWith(
+      "First run: feed baseline recorded. No items posted."
+    );
+    expect(create).not.toHaveBeenCalled();
+    const persisted = JSON.parse(
+      await readFile(cacheFile, "utf-8")
+    ) as string[];
+    expect(persisted).toEqual([hashFor(oldLink), hashFor(newLink)]);
+  });
+
+  it("fails loudly without posting when the cache file is corrupt", async () => {
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(cacheFile, "not-json");
+    mockedExtract.mockResolvedValue({
+      entries: [{ title: "New Post", link: newLink }],
+    } as unknown as Awaited<ReturnType<typeof extract>>);
+
+    await main();
+
+    expect(mockedCore.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to read cache file")
+    );
+    expect(create).not.toHaveBeenCalled();
+    const persisted = await readFile(cacheFile, "utf-8");
+    expect(persisted).toEqual("not-json");
+  });
+
   it("does not write a cache file when the feed is empty", async () => {
     mockedExtract.mockResolvedValue({
       entries: [],
