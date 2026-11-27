@@ -1,9 +1,9 @@
 export interface Item {
-  title: string | undefined;
   link: string;
+  title: string | undefined;
 }
 
 export interface Feed {
-  title: string;
   items: Item[];
+  title: string;
 }
