@@ -1,5 +1,5 @@
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as core from "@actions/core";
