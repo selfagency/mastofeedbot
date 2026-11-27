@@ -53,7 +53,7 @@ jobs:
           fi
           mkdir -p "${{ github.workspace }}/mastofeedbot"
           npm install --no-save @extractus/feed-extractor@8.0.4
-          node -e "const {extract}=require('@extractus/feed-extractor');const {createHash}=require('node:crypto');const {writeFile}=require('node:fs/promises');extract('${{ matrix.feed }}').then(async f=>{const h=l=>createHash('sha256').update(String(l),'utf8').digest('hex');const keep=f.entries[f.entries.length-1];const cache=f.entries.filter(e=>e.link!==keep.link).map(e=>h(e.link));await writeFile('${{ github.workspace }}/mastofeedbot/cache.json',JSON.stringify(cache));console.log('seeded',cache.length,'of',f.entries.length,'| will post:',keep.title);})"
+          node -e "const {extract}=require('@extractus/feed-extractor');const {createHash}=require('node:crypto');const {writeFile}=require('node:fs/promises');extract('${{ matrix.feed }}').then(async f=>{const h=l=>createHash('sha256').update(String(l),'utf8').digest('hex');const es=f.entries||[];if(!es.length){await writeFile('${{ github.workspace }}/mastofeedbot/cache.json','[]');console.log('feed has no entries; empty cache seeded');return}const keep=es[es.length-1];const cache=es.filter(e=>e.link!==keep.link).map(e=>h(e.link));await writeFile('${{ github.workspace }}/mastofeedbot/cache.json',JSON.stringify(cache));console.log('seeded',cache.length,'of',es.length,'| will post:',keep.title);})"
 
       - name: Run MastoFeedBot
         uses: 'selfagency/mastofeedbot@0f3e75a22e5224c6ab92a71bd283fd0fc65de9c0' # main at modernize PR #42 merge; bump deliberately after upstream changes
