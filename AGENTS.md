@@ -36,7 +36,7 @@ Runtime: **Node 24** (`.nvmrc`, `engines.node`, esbuild target, action runtime).
 ## Build and Deployment
 
 - `action.yml`: `runs.using: node24`, entry `dist/index.js` (bundled/minified, sourcemapped)
-- CI (`.github/workflows/ci.yml`): lint + tests + build on push/PR; fallow audit on PRs
+- CI (`.github/workflows/ci.yml`): lint + tests + build on push/PR; fallow audit on PRs (via lockfile-installed CLI)
 - Release: `release.yml` cuts a GitHub release when package version bumps on main
 - All workflow actions are pinned by full commit SHA (never move tags in `uses:`)
 
