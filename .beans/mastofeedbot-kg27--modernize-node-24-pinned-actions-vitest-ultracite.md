@@ -1,13 +1,13 @@
 ---
 # mastofeedbot-kg27
 title: 'Modernize: Node 24, pinned actions, vitest, ultracite, fallow'
-status: in-progress
+status: completed
 type: epic
 priority: high
 tags:
     - modernize
 created_at: 2026-11-27T22:48:46Z
-updated_at: 2026-11-27T22:55:44Z
+updated_at: 2026-11-27T22:56:55Z
 ---
 
 Approved plan 2026-11-27. Unstick git, then modernize toolchain and CI.
@@ -22,7 +22,7 @@ Approved plan 2026-11-27. Unstick git, then modernize toolchain and CI.
 - [x] fallow installed, audit run (maintainability 96.1)
 - [x] All workflow actions SHA-pinned latest; node16 setup gone; ci.yml gate added
 - [x] AGENTS.md created
-- [ ] code-review skill run; surfaced issues remediated
+- [x] code-review skill run; surfaced issues remediated
 - [ ] PR opened for review
 
 branch: feat/kg27-modernize
