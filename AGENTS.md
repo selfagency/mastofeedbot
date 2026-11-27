@@ -20,9 +20,10 @@ Runtime: **Node 24** (`.nvmrc`, `engines.node`, esbuild target, action runtime).
 
 ## Testing Instructions
 
-- Run all tests: `npm test` (22 tests)
+- Run all tests: `npm test` (23 tests)
 - Unit only: `npm run test:unit` — `src/index.test.ts`, external deps mocked
 - Integration only: `npm run test:integration` — `test/integration/main.integration.test.ts`; real filesystem cache + real `node:crypto` hashing, Mastodon client and feed fetch stubbed at their boundaries
+- Standalone dist testing: inputs come from the runner as `INPUT_<NAME>` env with the input's hyphens preserved and upper-cased (`rss-feed` → `INPUT_RSS-FEED`, `cache-file` → `INPUT_CACHE-FILE`); underscore variants are silently ignored by `@actions/core.getInput`
 - Assertions must be behavioral (verify outcomes, not file existence)
 - All tests must pass before any commit
 
