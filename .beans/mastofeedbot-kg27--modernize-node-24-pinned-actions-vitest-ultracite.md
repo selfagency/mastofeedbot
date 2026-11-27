@@ -7,7 +7,7 @@ priority: high
 tags:
     - modernize
 created_at: 2026-11-27T22:48:46Z
-updated_at: 2026-11-27T23:04:22Z
+updated_at: 2026-11-27T23:23:35Z
 ---
 
 Approved plan 2026-11-27. Unstick git, then modernize toolchain and CI.
@@ -31,3 +31,5 @@ branch: feat/kg27-modernize
 
 - Semgrep findings on PR #42 remediated: node runtime exact-pinned to 24.22.1 (CVE-2026-111497), jewschool action ref pinned to full SHA, fallow CI step runs via lockfile-installed CLI (fallow-rs/fallow v3.9.1 action fails binary verification on ubuntu runners — upstream issue candidate), base_ref interpolation removed.
 - All PR checks pass at 3453a41 (ci, fallow-audit, semgrep, socket x2, snyk).
+
+pr: 42 (merged 0f3e75a, merge commit; branch feat/kg27-modernize deleted; archive/local-main-pre-modernize retained). jewschool.yml action SHA re-pinned to the merged main head.
