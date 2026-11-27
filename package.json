@@ -1,49 +1,54 @@
 {
   "name": "@selfagency/mastofeedbot",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A bot to syndicate RSS to Mastodon via GitHub Actions",
-  "author": "Daniel Sieradski <daniel@self.agency>",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/selfagency/mastofeedbot.git"
-  },
   "keywords": [
     "mastodon",
     "fediverse",
     "bot",
     "rss"
   ],
+  "homepage": "https://github.com/selfagency/mastofeedbot#readme",
   "bugs": {
     "url": "https://github.com/selfagency/mastofeedbot/issues"
   },
-  "homepage": "https://github.com/selfagency/mastofeedbot#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/selfagency/mastofeedbot.git"
+  },
+  "license": "MIT",
+  "author": "Daniel Sieradski <daniel@self.agency>",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "node --es-module-specifier-resolution node esbuild.js"
-  },
-  "devDependencies": {
-    "@types/feedparser": "^2.2.5",
-    "@types/mkdirp": "^1.0.2",
-    "@types/node": "^18.11.9",
-    "@typescript-eslint/eslint-plugin": "^5.43.0",
-    "@typescript-eslint/parser": "^5.43.0",
-    "esbuild": "^0.15.14",
-    "esbuild-plugin-clean": "^0.9.0",
-    "esbuild-plugin-copy-file": "^0.0.2",
-    "esbuild-plugin-fileloc": "^0.0.6",
-    "eslint": "^8.27.0",
-    "eslint-config-prettier": "^8.5.0",
-    "eslint-config-standard": "^17.0.0",
-    "prettier": "^2.7.1",
-    "typescript": "^4.9.3"
+    "build": "node esbuild.js",
+    "check": "ultracite check",
+    "fix": "ultracite fix",
+    "lint": "ultracite check",
+    "lint:fix": "ultracite fix",
+    "test": "vitest run",
+    "test:integration": "vitest run --project integration",
+    "test:unit": "vitest run --project unit"
   },
   "dependencies": {
-    "@actions/core": "^1.11.1",
-    "@sohailalam2/abu": "^0.4.0",
-    "@extractus/feed-extractor": "^7.1.7",
-    "masto": "^4.6.2",
-    "mkdirp": "^1.0.4"
+    "@actions/core": "^3.0.1",
+    "@extractus/feed-extractor": "^8.0.4",
+    "masto": "^8.0.1",
+    "mkdirp": "^3.0.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.8",
+    "@types/node": "^24.10.1",
+    "esbuild": "^0.28.2",
+    "esbuild-plugin-clean": "^1.0.1",
+    "esbuild-plugin-copy-file": "^0.0.2",
+    "esbuild-plugin-fileloc": "^0.0.6",
+    "fallow": "^3.50.0",
+    "typescript": "^7.0.2",
+    "ultracite": "^8.3.1",
+    "vitest": "^5.1.2"
+  },
+  "engines": {
+    "node": ">=24.22.1"
   }
 }

@@ -54,6 +54,9 @@ Temporary Items
 *.icloud
 
 ### Node ###
+# Agent session temporary files
+.tmp/
+
 # Logs
 logs
 *.log
