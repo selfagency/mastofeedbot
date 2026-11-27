@@ -52,4 +52,5 @@ jobs:
         run: npm ci
 
       - name: Fallow audit
-        run: npx fallow audit --base "origin/${{ github.base_ref }}"
+        # base hardcoded: this repo PRs only against main; interpolating github.base_ref into shell is semgrep-flagged injection
+        run: npx fallow audit --base origin/main
