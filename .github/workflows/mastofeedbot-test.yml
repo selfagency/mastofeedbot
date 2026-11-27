@@ -51,6 +51,7 @@ jobs:
             echo "cache restored from previous run"
             exit 0
           fi
+          mkdir -p "${{ github.workspace }}/mastofeedbot"
           npm install --no-save @extractus/feed-extractor@8.0.4
           node -e "const {extract}=require('@extractus/feed-extractor');const {createHash}=require('node:crypto');const {writeFile}=require('node:fs/promises');extract('${{ matrix.feed }}').then(async f=>{const h=l=>createHash('sha256').update(String(l),'utf8').digest('hex');const keep=f.entries[f.entries.length-1];const cache=f.entries.filter(e=>e.link!==keep.link).map(e=>h(e.link));await writeFile('${{ github.workspace }}/mastofeedbot/cache.json',JSON.stringify(cache));console.log('seeded',cache.length,'of',f.entries.length,'| will post:',keep.title);})"
 
