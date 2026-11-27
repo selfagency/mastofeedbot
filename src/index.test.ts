@@ -12,6 +12,7 @@ import {
   getRss,
   main,
   postItems,
+  statusText,
   writeCache,
 } from "./index";
 
@@ -112,6 +113,40 @@ describe("MastoFeedBot", () => {
         new Date("2026-11-27T00:00:00Z")
       );
       expect(filtered).toHaveLength(1);
+    });
+  });
+
+  describe("statusText", () => {
+    const item = {
+      id: "1",
+      title: "Hello",
+      link: "https://example.com/x",
+      description: "Body text",
+    };
+
+    it("uses the default title and link format", () => {
+      expect(statusText(item, "{{title}} {{link}}")).toEqual(
+        "Hello https://example.com/x"
+      );
+    });
+
+    it("falls back to the bare link without a title", () => {
+      expect(
+        statusText({ link: "https://example.com/x" }, "{{title}} {{link}}")
+      ).toEqual("https://example.com/x");
+    });
+
+    it("supports description tokens and custom text", () => {
+      expect(
+        statusText(item, "News: {{title}} — {{description}} {{link}}")
+      ).toEqual("News: Hello — Body text https://example.com/x");
+    });
+
+    it("truncates to the 500 character mastodon limit", () => {
+      const long = "x".repeat(600);
+      const text = statusText({ ...item, title: long }, "{{link}} {{title}}");
+      expect(text.length).toBe(500);
+      expect(String(text).endsWith("...")).toBe(true);
     });
   });
 
@@ -231,15 +266,19 @@ describe("MastoFeedBot", () => {
         ],
       };
       mockedExtract.mockResolvedValue(feed as unknown as FeedData);
-      const rss = await getRss("http://example.com/rss");
-      expect(rss).toEqual(feed.entries);
+      const { entries } = (await getRss("http://example.com/rss")) ?? {
+        entries: [],
+      };
+      expect(entries).toEqual(feed.entries);
     });
 
     it("should return empty array if entries are null", async () => {
       const feed = { entries: null };
       mockedExtract.mockResolvedValue(feed as unknown as FeedData);
-      const rss = await getRss("http://example.com/rss");
-      expect(rss).toEqual([]);
+      const { entries } = (await getRss("http://example.com/rss")) ?? {
+        entries: [],
+      };
+      expect(entries).toEqual([]);
     });
 
     it("should handle errors when fetching rss feed and return undefined", async () => {
@@ -300,7 +339,13 @@ describe("MastoFeedBot", () => {
         "token",
         rss,
         "public",
-        cache
+        cache,
+        {
+          format: "{{title}} {{link}}",
+          sensitive: false,
+          spoilerText: "",
+          attachEnclosures: false,
+        }
       );
       expect(mockCreate).toHaveBeenCalledWith({
         status: "New Post http://example.com/new",
@@ -316,7 +361,12 @@ describe("MastoFeedBot", () => {
         { id: "12349", link: "http://example.com/no-title" },
       ] as unknown as FeedEntry[];
       const cache: string[] = [];
-      await postItems("endpoint", "token", rss, "public", cache);
+      await postItems("endpoint", "token", rss, "public", cache, {
+        format: "{{title}} {{link}}",
+        sensitive: false,
+        spoilerText: "",
+        attachEnclosures: false,
+      });
       expect(mockCreate).toHaveBeenCalledWith({
         status: "http://example.com/no-title",
         visibility: "public",
@@ -340,13 +390,88 @@ describe("MastoFeedBot", () => {
         "token",
         rss,
         "public",
-        cache
+        cache,
+        {
+          format: "{{title}} {{link}}",
+          sensitive: false,
+          spoilerText: "",
+          attachEnclosures: false,
+        }
       );
       expect(summary.aborted).toBe(true);
       expect(summary.posted).toBe(1);
       expect(cache).toEqual([sha256Hex("http://example.com/1")]);
       // the third item was never attempted
       expect(mockCreate).toHaveBeenCalledTimes(2);
+    });
+
+    it("should post with language, sensitive and spoiler options", async () => {
+      mockCreate.mockClear();
+      mockedCreateRestAPIClient.mockReturnValue({
+        v1: {
+          statuses: {
+            create: mockCreate,
+          },
+        },
+      } as unknown as ReturnType<typeof createRestAPIClient>);
+      const rss = [
+        { id: "42", title: "Ops Post", link: "http://example.com/ops" },
+      ] as unknown as FeedEntry[];
+      await postItems("endpoint", "token", rss, "unlisted", [], {
+        format: "{{title}} {{link}}",
+        language: "en",
+        sensitive: true,
+        spoilerText: "Ops",
+        attachEnclosures: false,
+      });
+      expect(mockCreate).toHaveBeenCalledWith({
+        status: "Ops Post http://example.com/ops",
+        visibility: "unlisted",
+        language: "en",
+        sensitive: true,
+        spoilerText: "Ops",
+      });
+    });
+
+    it("should attach image enclosures", async () => {
+      const rss = [
+        {
+          id: "7",
+          title: "With Image",
+          link: "http://example.com/img-post",
+          enclosureUrl: "http://example.com/img-post.jpg",
+          enclosureType: "image/jpeg",
+        },
+      ] as unknown as FeedEntry[];
+      const mediaCreate = vi.fn().mockResolvedValue({ id: "media-1" });
+      mockedCreateRestAPIClient.mockReturnValue({
+        v1: {
+          media: { create: mediaCreate },
+          statuses: { create: mockCreate },
+        },
+      } as unknown as ReturnType<typeof createRestAPIClient>);
+      const fetchStub = vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: () => new ArrayBuffer(8),
+      });
+      vi.stubGlobal("fetch", fetchStub);
+      try {
+        await postItems("endpoint", "token", rss, "public", [], {
+          format: "{{title}} {{link}}",
+          language: undefined,
+          sensitive: false,
+          spoilerText: "",
+          attachEnclosures: true,
+        });
+      } finally {
+        vi.unstubAllGlobals();
+      }
+      expect(mediaCreate).toHaveBeenCalledTimes(1);
+      expect(mockCreate).toHaveBeenCalledWith({
+        status: "With Image http://example.com/img-post",
+        visibility: "public",
+        mediaIds: ["media-1"],
+      });
     });
 
     it("should handle errors when posting an item", async () => {
@@ -360,7 +485,13 @@ describe("MastoFeedBot", () => {
         "token",
         rss,
         "public",
-        cache
+        cache,
+        {
+          format: "{{title}} {{link}}",
+          sensitive: false,
+          spoilerText: "",
+          attachEnclosures: false,
+        }
       );
       expect(summary.failed).toBe(1);
       expect(summary.posted).toBe(0);
@@ -413,7 +544,11 @@ describe("MastoFeedBot", () => {
       await main();
 
       expect(mockedCore.getInput).toHaveBeenCalledWith("rss-feed");
-      expect(mockedExtract).toHaveBeenCalledWith("http://example.com/rss");
+      expect(mockedExtract).toHaveBeenCalledWith(
+        "http://example.com/rss",
+        expect.anything(),
+        expect.anything()
+      );
       expect(mockedReadFile).toHaveBeenCalledWith("cache.json", "utf-8");
       expect(create).toHaveBeenCalledTimes(1);
       expect(create).toHaveBeenCalledWith({

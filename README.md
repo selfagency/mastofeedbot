@@ -51,6 +51,20 @@ jobs:
           api-token: ${{ secrets.MASTODON_ACCESS_TOKEN }}
           # This is a path to the cache file, using the above cache path
           cache-file: ${{ github.workspace }}/mastofeedbot/cache.json
+          # Maximum number of remembered entries (defaults to 100)
+          cache-limit: 100
+          # Status text template; tokens {{title}}, {{link}} and {{description}} are replaced ({{title}} {{link}} by default)
+          status-format: "{{title}} {{link}}"
+          # ISO 639 status language; falls back to the feed language when omitted
+          language: en
+          # Mark statuses as sensitive (true/false); forced when spoiler-text is set
+          sensitive: false
+          # Content warning text for all statuses (empty = none)
+          spoiler-text: ""
+          # Attach image enclosures as media (true/false, default true)
+          attach-enclosures: true
+          # Log what would be posted without touching the Mastodon API or the cache
+          dry-run: false
 ```
 
 5. Commit and publish your changes.

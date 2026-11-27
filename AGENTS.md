@@ -20,7 +20,7 @@ Runtime: **Node 24** (`.nvmrc`, `engines.node`, esbuild target, action runtime).
 
 ## Testing Instructions
 
-- Run all tests: `npm test` (23 tests)
+- Run all tests: `npm test` (42 tests)
 - Unit only: `npm run test:unit` — `src/index.test.ts`, external deps mocked
 - Integration only: `npm run test:integration` — `test/integration/main.integration.test.ts`; real filesystem cache + real `node:crypto` hashing, Mastodon client and feed fetch stubbed at their boundaries
 - Standalone dist testing: inputs come from the runner as `INPUT_<NAME>` env with the input's hyphens preserved and upper-cased (`rss-feed` → `INPUT_RSS-FEED`, `cache-file` → `INPUT_CACHE-FILE`); underscore variants are silently ignored by `@actions/core.getInput`
@@ -37,9 +37,18 @@ Runtime: **Node 24** (`.nvmrc`, `engines.node`, esbuild target, action runtime).
 ## Build and Deployment
 
 - `action.yml`: `runs.using: node24`, entry `dist/index.js` (bundled/minified, sourcemapped)
-- CI (`.github/workflows/ci.yml`): lint + tests + build on push/PR; fallow audit on PRs (via lockfile-installed CLI)
+- CI (`.github/workflows/ci.yml`): lint + typecheck + tests + build on push/PR; fallow audit on PRs (via lockfile-installed CLI)
 - Release: `release.yml` cuts a GitHub release when package version bumps on main
 - All workflow actions are pinned by full commit SHA (never move tags in `uses:`)
+
+## Behavior Notes
+
+- A missing cache file means **first sighting**: all current entries are recorded as the baseline and **nothing is posted**; only genuinely new items post on later runs (never anything older than the previous run)
+- A corrupt cache file is a loud failure; the bot never posts without a trustworthy cache
+- Mastodon HTTP 429/503 aborts the run (posted items are cached; the rest stays pending)
+- `dry-run: true` logs what would be posted and touches neither the API nor the cache
+- Each run writes a job summary (mode, outcome, posted/pending counts)
+- Enclosure images are attached best-effort; a failed attachment posts text-only
 
 ## Security
 

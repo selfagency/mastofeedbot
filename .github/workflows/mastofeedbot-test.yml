@@ -36,26 +36,26 @@ jobs:
             feed: https://resend-status.com/feed.rss
     steps:
       - name: Generate cache key
-        uses: 'actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71' # v9.0.0
+        uses: "actions/github-script@d746ffe35508b1917358783b479e04febd2b8f71" # v9.0.0
         id: generate-key
         with:
           script: |
             core.setOutput('cache-key', new Date().valueOf())
 
       - name: Retrieve cache
-        uses: 'actions/cache@caa296126883cff596d87d8935842f9db880ef25' # v5.1.0
+        uses: "actions/cache@caa296126883cff596d87d8935842f9db880ef25" # v5.1.0
         with:
           path: ${{ github.workspace }}/mastofeedbot
           key: feed-cache-${{ matrix.slug }}-${{ steps.generate-key.outputs.cache-key }}
           restore-keys: feed-cache-${{ matrix.slug }}-
 
       - name: Run MastoFeedBot
-        uses: 'selfagency/mastofeedbot@340ee730f620a05cd6772c10b87e093b51267de8' # main at baseline-fix commit; bump deliberately after upstream changes
+        uses: "selfagency/mastofeedbot@340ee730f620a05cd6772c10b87e093b51267de8" # main at baseline-fix commit; bump deliberately after upstream changes
         with:
           rss-feed: ${{ matrix.feed }}
           api-endpoint: ${{ secrets.MASTODON_TEST_ENDPOINT }}
           api-token: ${{ secrets.MASTODON_TEST_TOKEN }}
           cache-file: ${{ github.workspace }}/mastofeedbot/cache.json
           # full-history status feeds have thousands of entries; the cache window must cover the whole feed or old items re-post on every run
-          cache-limit: '10000'
-          status-visibility: 'public'
+          cache-limit: "10000"
+          status-visibility: "public"

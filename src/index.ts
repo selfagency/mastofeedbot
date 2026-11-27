@@ -6,6 +6,20 @@ import { extract } from "@extractus/feed-extractor";
 import { createRestAPIClient } from "masto";
 import { mkdirp } from "mkdirp";
 
+const FEED_FETCH_OPTIONS = {
+  getExtraEntryFields: (raw: Record<string, unknown>) => {
+    const enclosure = raw?.enclosure as
+      | { url?: string; type?: string }
+      | undefined;
+    return {
+      enclosureUrl: enclosure?.url ?? "",
+      enclosureType: enclosure?.type ?? "",
+    };
+  },
+};
+const FEED_FETCHER = (url: string): Promise<Response> =>
+  fetch(url, { signal: AbortSignal.timeout(60_000) });
+
 function sha256Hex(value: string | undefined | null): string {
   return createHash("sha256")
     .update(value ?? "", "utf8")
@@ -44,14 +58,33 @@ export async function writeCache(
   }
 }
 
+export interface PostItemOptions {
+  attachEnclosures: boolean;
+  format: string;
+  language?: string;
+  sensitive: boolean;
+  spoilerText?: string;
+}
+
 export interface PostSummary {
   aborted: boolean;
   failed: number;
   posted: number;
 }
 
-function statusText(item: FeedEntry): string {
-  return item.title ? `${item.title} ${item.link}` : `${item.link}`;
+export function statusText(
+  item: { title?: string; link?: string; description?: string },
+  format: string
+): string {
+  const text = format
+    .replaceAll("{{title}}", item.title ?? "")
+    .replaceAll("{{link}}", item.link ?? "")
+    .replaceAll("{{description}}", item.description ?? "")
+    .trim();
+  if (text.length <= 497) {
+    return text;
+  }
+  return `${text.slice(0, 497)}...`;
 }
 
 export async function postItems(
@@ -59,7 +92,8 @@ export async function postItems(
   apiToken: string,
   rss: FeedEntry[],
   visibility: "public" | "unlisted" | "private" | "direct",
-  cache: string[]
+  cache: string[],
+  options: PostItemOptions
 ): Promise<PostSummary> {
   // authenticate with mastodon
   const masto = createRestAPIClient({
@@ -75,12 +109,54 @@ export async function postItems(
   for (const item of rss) {
     try {
       const hash = sha256Hex(item.link);
+      const status = statusText(item, options.format);
+
+      // attach the first image enclosure, if any (best effort: posting continues without media)
+      const mediaIds: string[] = [];
+      const enclosureUrl = String(
+        (item as { enclosureUrl?: string }).enclosureUrl ?? ""
+      );
+      const enclosureType = String(
+        (item as { enclosureType?: string }).enclosureType ?? ""
+      );
+      if (
+        options.attachEnclosures &&
+        enclosureUrl &&
+        enclosureType.startsWith("image/")
+      ) {
+        try {
+          const response = await fetch(enclosureUrl, {
+            signal: AbortSignal.timeout(30_000),
+          });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const bytes = await response.arrayBuffer();
+          if (bytes.byteLength > 8 * 1024 * 1024) {
+            throw new Error("enclosure exceeds 8 MB");
+          }
+          const blob = new Blob([bytes], { type: enclosureType });
+          const attachment = await masto.v1.media.create({
+            file: blob,
+            description: item.title ?? undefined,
+          });
+          mediaIds.push(attachment.id);
+        } catch (mediaError) {
+          core.warning(
+            `Failed to attach enclosure ${enclosureUrl}: ${(<Error>mediaError).message}`
+          );
+        }
+      }
 
       // post the item
       // biome-ignore lint/performance/noAwaitInLoops: sequential posting preserves feed order and respects API rate limits
       const res = await masto.v1.statuses.create({
-        status: statusText(item),
+        status,
         visibility,
+        ...(options.language ? { language: options.language } : {}),
+        ...(options.sensitive ? { sensitive: true } : {}),
+        ...(options.spoilerText ? { spoilerText: options.spoilerText } : {}),
+        ...(mediaIds.length ? { mediaIds } : {}),
       });
       core.debug(`Response:\n\n${JSON.stringify(res, null, 2)}`);
 
@@ -146,17 +222,16 @@ export function filterCachedItems(
 
 export async function getRss(
   rssFeed: string
-): Promise<FeedEntry[] | undefined> {
+): Promise<{ entries: FeedEntry[]; language?: string } | undefined> {
   try {
-    const feed = await extract(rssFeed);
-    // biome-ignore lint/suspicious/noUnnecessaryConditions: malformed feeds can omit or null entries at runtime
+    const feed = await extract(rssFeed, FEED_FETCH_OPTIONS, FEED_FETCHER);
     const rss = feed?.entries ?? [];
     core.debug(
       JSON.stringify(
         `Pre-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`
       )
     );
-    return rss;
+    return { entries: rss, language: feed?.language };
   } catch (e) {
     core.setFailed(`Failed to parse RSS feed: ${(<Error>e).message}`);
     return undefined;
@@ -207,7 +282,8 @@ export async function main(): Promise<void> {
   // get the rss feed
   const rssFeed = core.getInput("rss-feed");
   core.debug(`rssFeed: ${rssFeed}`);
-  let rss = await getRss(rssFeed);
+  const feedData = await getRss(rssFeed);
+  let rss = feedData?.entries;
 
   if (!rss) {
     return;
@@ -227,6 +303,31 @@ export async function main(): Promise<void> {
   const cacheLimit = Number.parseInt(core.getInput("cache-limit"), 10);
   const dryRunInput = core.getBooleanInput("dry-run");
   const dryRun = dryRunInput === true || (dryRunInput as unknown) === "true";
+  const languageInput = core.getInput("language", { trimWhitespace: true });
+  const feedLanguage = feedData?.language ?? "";
+  const language = String(feedLanguage || languageInput || "")
+    .split("-")[0]
+    .toLowerCase();
+  const sensitiveInput = core.getBooleanInput("sensitive");
+  const spoilerText = String(
+    core.getInput("spoiler-text", { trimWhitespace: true }) ?? ""
+  ).trim();
+  const statusFormat =
+    String(
+      core.getInput("status-format", { trimWhitespace: true }) ?? ""
+    ).trim() || "{{title}} {{link}}";
+  const attachEnclosures = core.getBooleanInput("attach-enclosures");
+  const postOptions: PostItemOptions = {
+    format: statusFormat,
+    language: language || undefined,
+    sensitive:
+      sensitiveInput === true ||
+      (sensitiveInput as unknown) === "true" ||
+      spoilerText !== "",
+    spoilerText: spoilerText || undefined,
+    attachEnclosures:
+      attachEnclosures === true || (attachEnclosures as unknown) === "true",
+  };
   const statusVisibility: "public" | "unlisted" | "private" | "direct" =
     core.getInput("status-visibility", {
       trimWhitespace: true,
@@ -294,7 +395,8 @@ export async function main(): Promise<void> {
     apiToken,
     <FeedEntry[]>rss,
     statusVisibility,
-    cache
+    cache,
+    postOptions
   );
 
   // write the cache (even on abort: successfully posted items must persist)
