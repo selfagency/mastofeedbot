@@ -1,7 +1,7 @@
-import fileloc from 'esbuild-plugin-fileloc';
-import { clean } from 'esbuild-plugin-clean';
-import copyFilePlugin from 'esbuild-plugin-copy-file';
-import esbuild from 'esbuild';
+import esbuild from "esbuild";
+import { clean } from "esbuild-plugin-clean";
+import copyFilePlugin from "esbuild-plugin-copy-file";
+import fileloc from "esbuild-plugin-fileloc";
 
 const banner = `
 import {createRequire} from 'module';
@@ -10,36 +10,36 @@ const require = createRequire(import.meta.url);
 
 esbuild
   .build({
-    entryPoints: ['./src/index.ts'],
-    platform: 'node',
-    target: 'node16',
+    entryPoints: ["./src/index.ts"],
+    platform: "node",
+    target: "node24",
     bundle: true,
     plugins: [
       clean({
-        patterns: ['./dist/*']
+        patterns: ["./dist/*"],
       }),
       fileloc.filelocPlugin(),
       copyFilePlugin({
         after: {
-          './dist/package.json': './package.json'
-        }
-      })
+          "./dist/package.json": "./package.json",
+        },
+      }),
     ],
     loader: {
-      '.ts': 'ts',
-      '.js': 'js',
-      '.cjs': 'js'
+      ".ts": "ts",
+      ".js": "js",
+      ".cjs": "js",
     },
-    outdir: 'dist',
-    external: ['package.json'],
+    outdir: "dist",
+    external: ["package.json"],
     minify: true,
     sourcemap: true,
-    format: 'esm',
+    format: "esm",
     banner: {
-      js: banner
-    }
+      js: banner,
+    },
   })
-  .catch(error => {
+  .catch((error) => {
     console.error(error.message);
     process.exit(1);
   });
