@@ -22,7 +22,7 @@ jobs:
           restore-keys: feed-cache-
 
       - name: Jewschool.com
-        uses: "selfagency/mastofeedbot@main"
+        uses: "selfagency/mastofeedbot@65951bbd19e1c473137ca0ae6cc513f9b9dfe461" # main at modernize PR #42; bump deliberately after upstream changes
         with:
           rss-feed: https://feeds.feedburner.com/jewschool/feed
           api-endpoint: https://kibitz.cloud
