@@ -114,16 +114,19 @@ export async function getRss(
 }
 
 export async function getCache(cacheFile: string): Promise<string[]> {
-  let cache: string[] = [];
   try {
-    cache = JSON.parse(await readFile(cacheFile, "utf-8"));
+    const cache = JSON.parse(await readFile(cacheFile, "utf-8")) as string[];
     core.debug(`Cache: ${JSON.stringify(cache)}`);
     return cache;
-  } catch {
-    core.notice(
-      `Cache file not found. Creating new cache file at ${cacheFile}.`
-    );
-    return cache;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException)?.code === "ENOENT") {
+      core.notice(
+        `Cache file not found. Creating new cache file at ${cacheFile}.`
+      );
+      return [];
+    }
+    core.setFailed(`Failed to read cache file: ${(<Error>e).message}`);
+    return [];
   }
 }
 

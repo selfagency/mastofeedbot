@@ -67,11 +67,22 @@ describe("MastoFeedBot", () => {
     });
 
     it("should return an empty array if file does not exist", async () => {
-      mockedReadFile.mockRejectedValue(new Error("File not found"));
+      mockedReadFile.mockRejectedValue(
+        Object.assign(new Error("File not found"), { code: "ENOENT" })
+      );
       const cache = await getCache("cache.json");
       expect(cache).toEqual([]);
       expect(mockedCore.notice).toHaveBeenCalledWith(
         "Cache file not found. Creating new cache file at cache.json."
+      );
+    });
+
+    it("should fail loudly if the cache file contains invalid JSON", async () => {
+      mockedReadFile.mockResolvedValue("not-json");
+      const cache = await getCache("cache.json");
+      expect(cache).toEqual([]);
+      expect(mockedCore.setFailed).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to read cache file")
       );
     });
   });
