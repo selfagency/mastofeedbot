@@ -433,9 +433,9 @@ function writeSummary(
   posted: number,
   pending: number
 ): void {
-  const { addHeading, addTable, write } = core.summary;
-  addHeading("MastoFeedBot run");
-  addTable([
+  const summary = core.summary;
+  summary.addHeading("MastoFeedBot run");
+  summary.addTable([
     [
       { data: "Field", header: true },
       { data: "Value", header: true },
@@ -446,7 +446,7 @@ function writeSummary(
     ["Posted", String(posted)],
     ["Pending", String(pending)],
   ]);
-  write();
+  summary.write();
 }
 
 main();
