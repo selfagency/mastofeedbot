@@ -8,6 +8,7 @@ import { mkdirp } from "mkdirp";
 
 const FEED_FETCH_OPTIONS = {
   getExtraEntryFields: (raw: Record<string, unknown>) => {
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: malformed feeds may omit the enclosure object at runtime
     const enclosure = raw?.enclosure as
       | { url?: string; type?: string }
       | undefined;
@@ -19,6 +20,10 @@ const FEED_FETCH_OPTIONS = {
 };
 const FEED_FETCHER = (url: string): Promise<Response> =>
   fetch(url, { signal: AbortSignal.timeout(60_000) });
+
+function isTrue(value: unknown): boolean {
+  return value === true || String(value) === "true";
+}
 
 function sha256Hex(value: string | undefined | null): string {
   return createHash("sha256")
@@ -112,44 +117,11 @@ export async function postItems(
       const status = statusText(item, options.format);
 
       // attach the first image enclosure, if any (best effort: posting continues without media)
-      const mediaIds: string[] = [];
-      const enclosureUrl = String(
-        (item as { enclosureUrl?: string }).enclosureUrl ?? ""
-      );
-      const enclosureType = String(
-        (item as { enclosureType?: string }).enclosureType ?? ""
-      );
-      if (
-        options.attachEnclosures &&
-        enclosureUrl &&
-        enclosureType.startsWith("image/")
-      ) {
-        try {
-          const response = await fetch(enclosureUrl, {
-            signal: AbortSignal.timeout(30_000),
-          });
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          const bytes = await response.arrayBuffer();
-          if (bytes.byteLength > 8 * 1024 * 1024) {
-            throw new Error("enclosure exceeds 8 MB");
-          }
-          const blob = new Blob([bytes], { type: enclosureType });
-          const attachment = await masto.v1.media.create({
-            file: blob,
-            description: item.title ?? undefined,
-          });
-          mediaIds.push(attachment.id);
-        } catch (mediaError) {
-          core.warning(
-            `Failed to attach enclosure ${enclosureUrl}: ${(<Error>mediaError).message}`
-          );
-        }
-      }
+      // biome-ignore lint/performance/noAwaitInLoops: sequential posting preserves feed order and respects API rate limits
+      const mediaId = await attachEnclosureImage(masto, item, options);
+      const mediaIds = mediaId ? [mediaId] : [];
 
       // post the item
-      // biome-ignore lint/performance/noAwaitInLoops: sequential posting preserves feed order and respects API rate limits
       const res = await masto.v1.statuses.create({
         status,
         visibility,
@@ -162,11 +134,11 @@ export async function postItems(
 
       // add the item to the cache
       cache.push(hash);
-      posted++;
+      posted += 1;
     } catch (e) {
-      failed++;
+      failed += 1;
       lastError = (<Error>e).message;
-      const statusCode = (e as { statusCode?: number }).statusCode;
+      const { statusCode } = e as { statusCode?: number };
       core.warning(`Failed to post ${item.title ?? item.link}: ${lastError}`);
       // stop the run on rate limits so items outside the window stay uncached for the next run
       if (statusCode === 429 || statusCode === 503) {
@@ -187,6 +159,51 @@ export async function postItems(
   }
 
   return { posted, failed, aborted };
+}
+
+async function attachEnclosureImage(
+  masto: ReturnType<typeof createRestAPIClient>,
+  item: FeedEntry,
+  options: PostItemOptions
+): Promise<string | undefined> {
+  const enclosureUrl = String(
+    (item as { enclosureUrl?: string }).enclosureUrl ?? ""
+  );
+  const enclosureType = String(
+    (item as { enclosureType?: string }).enclosureType ?? ""
+  );
+  if (
+    !(
+      options.attachEnclosures &&
+      enclosureUrl &&
+      enclosureType.startsWith("image/")
+    )
+  ) {
+    return undefined;
+  }
+  try {
+    const response = await fetch(enclosureUrl, {
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const bytes = await response.arrayBuffer();
+    if (bytes.byteLength > 8 * 1024 * 1024) {
+      throw new Error("enclosure exceeds 8 MB");
+    }
+    const blob = new Blob([bytes], { type: enclosureType });
+    const attachment = await masto.v1.media.create({
+      file: blob,
+      description: item.title ?? undefined,
+    });
+    return attachment.id;
+  } catch (mediaError) {
+    core.warning(
+      `Failed to attach enclosure ${enclosureUrl}: ${(<Error>mediaError).message}`
+    );
+    return undefined;
+  }
 }
 
 export function filterCachedItems(
@@ -225,12 +242,14 @@ export async function getRss(
 ): Promise<{ entries: FeedEntry[]; language?: string } | undefined> {
   try {
     const feed = await extract(rssFeed, FEED_FETCH_OPTIONS, FEED_FETCHER);
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: malformed feeds may omit entries at runtime
     const rss = feed?.entries ?? [];
     core.debug(
       JSON.stringify(
         `Pre-filter feed items:\n\n${JSON.stringify(rss, null, 2)}`
       )
     );
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: malformed feeds may omit the language at runtime
     return { entries: rss, language: feed?.language };
   } catch (e) {
     core.setFailed(`Failed to parse RSS feed: ${(<Error>e).message}`);
@@ -261,7 +280,9 @@ export async function getCache(cacheFile: string): Promise<{
     const parsedRun = new Date(String(stored.lastRun));
     core.debug(`Cache: ${JSON.stringify(stored.seen)}`);
     return {
-      cache: stored.seen ?? [],
+      cache:
+        // biome-ignore lint/suspicious/noUnnecessaryConditions: malformed caches may lack the seen array at runtime
+        stored.seen ?? [],
       existed: true,
       failed: false,
       lastRun: Number.isNaN(parsedRun.getTime()) ? new Date() : parsedRun,
@@ -302,20 +323,19 @@ export async function main(): Promise<void> {
   const cacheFile = core.getInput("cache-file");
   const cacheLimit = Number.parseInt(core.getInput("cache-limit"), 10);
   const dryRunInput = core.getBooleanInput("dry-run");
-  const dryRun = dryRunInput === true || (dryRunInput as unknown) === "true";
+  const dryRun = isTrue(dryRunInput);
   const languageInput = core.getInput("language", { trimWhitespace: true });
   const feedLanguage = feedData?.language ?? "";
   const language = String(feedLanguage || languageInput || "")
     .split("-")[0]
     .toLowerCase();
   const sensitiveInput = core.getBooleanInput("sensitive");
-  const spoilerText = String(
-    core.getInput("spoiler-text", { trimWhitespace: true }) ?? ""
-  ).trim();
+  const spoilerText = core
+    .getInput("spoiler-text", { trimWhitespace: true })
+    .trim();
   const statusFormat =
-    String(
-      core.getInput("status-format", { trimWhitespace: true }) ?? ""
-    ).trim() || "{{title}} {{link}}";
+    core.getInput("status-format", { trimWhitespace: true }).trim() ||
+    "{{title}} {{link}}";
   const attachEnclosures = core.getBooleanInput("attach-enclosures");
   const postOptions: PostItemOptions = {
     format: statusFormat,
@@ -360,13 +380,7 @@ export async function main(): Promise<void> {
       );
       core.notice("First run: feed baseline recorded. No items posted.");
     }
-    await writeSummary(
-      rssFeed,
-      dryRun,
-      "baseline",
-      0,
-      (<FeedEntry[]>rss).length
-    );
+    writeSummary(rssFeed, dryRun, "baseline", 0, (<FeedEntry[]>rss).length);
     return;
   }
 
@@ -376,7 +390,7 @@ export async function main(): Promise<void> {
   // if there are no new items, we're done
   if (rss.length === 0) {
     core.notice("No new items to post.");
-    await writeSummary(rssFeed, dryRun, "clean", 0, 0);
+    writeSummary(rssFeed, dryRun, "clean", 0, 0);
     return;
   }
 
@@ -385,7 +399,7 @@ export async function main(): Promise<void> {
     core.notice(
       `Dry run: ${(<FeedEntry[]>rss).length} item(s) would be posted.`
     );
-    await writeSummary(rssFeed, true, "dry-run", 0, (<FeedEntry[]>rss).length);
+    writeSummary(rssFeed, true, "dry-run", 0, (<FeedEntry[]>rss).length);
     return;
   }
 
@@ -403,7 +417,7 @@ export async function main(): Promise<void> {
   await writeCache(cacheFile, cacheLimit, cache, new Date());
 
   // record the run outcome in the job summary
-  await writeSummary(
+  writeSummary(
     rssFeed,
     dryRun,
     summary.aborted ? "aborted (rate limit)" : "completed",
@@ -412,16 +426,16 @@ export async function main(): Promise<void> {
   );
 }
 
-async function writeSummary(
+function writeSummary(
   feedUrl: string,
   dryRun: boolean,
   outcome: string,
   posted: number,
   pending: number
-): Promise<void> {
-  const summary = core.summary;
-  summary.addHeading("MastoFeedBot run");
-  summary.addTable([
+): void {
+  const { addHeading, addTable, write } = core.summary;
+  addHeading("MastoFeedBot run");
+  addTable([
     [
       { data: "Field", header: true },
       { data: "Value", header: true },
@@ -432,7 +446,7 @@ async function writeSummary(
     ["Posted", String(posted)],
     ["Pending", String(pending)],
   ]);
-  summary.write();
+  write();
 }
 
 main();

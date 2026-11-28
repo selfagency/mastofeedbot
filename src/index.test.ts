@@ -57,13 +57,13 @@ const mockedRename = vi.mocked(rename);
 const mockedMkdirp = vi.mocked(mkdirp);
 const mockedExtract = vi.mocked(extract);
 const mockedCreateRestAPIClient = vi.mocked(createRestAPIClient);
-type SummaryStub = {
-  addHeading: ReturnType<typeof vi.fn>;
-  addTable: ReturnType<typeof vi.fn>;
-  addRaw: ReturnType<typeof vi.fn>;
+interface SummaryStub {
   addBreak: ReturnType<typeof vi.fn>;
+  addHeading: ReturnType<typeof vi.fn>;
+  addRaw: ReturnType<typeof vi.fn>;
+  addTable: ReturnType<typeof vi.fn>;
   write: ReturnType<typeof vi.fn>;
-};
+}
 const mockedCore = {
   getInput: vi.mocked(core.getInput),
   getBooleanInput: vi.mocked(core.getBooleanInput),
@@ -165,7 +165,7 @@ describe("MastoFeedBot", () => {
       mockedReadFile.mockRejectedValue(
         Object.assign(new Error("File not found"), { code: "ENOENT" })
       );
-      const { cache, existed, failed } = await getCache("cache.json");
+      const { existed, failed } = await getCache("cache.json");
       expect(existed).toBe(false);
       expect(failed).toBe(false);
       expect(mockedCore.notice).toHaveBeenCalledWith(
@@ -516,7 +516,7 @@ describe("MastoFeedBot", () => {
           "cache-limit": "100",
           "status-visibility": "public",
         };
-        return inputs[name];
+        return inputs[name] ?? "";
       });
 
       create = vi.fn().mockResolvedValue({ id: "123" });
