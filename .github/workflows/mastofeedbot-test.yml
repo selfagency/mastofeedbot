@@ -50,7 +50,7 @@ jobs:
           restore-keys: feed-cache-${{ matrix.slug }}-
 
       - name: Run MastoFeedBot
-        uses: "selfagency/mastofeedbot@f1a4e513186bd072cbcf5b998bc03cc17a6ec97d" # main at feature batch; bump deliberately after upstream changes
+        uses: "selfagency/mastofeedbot@c936672e66bf69ea63bc2e6c3607287fe33cf364" # main head; bump deliberately after upstream changes
         with:
           rss-feed: ${{ matrix.feed }}
           api-endpoint: ${{ secrets.MASTODON_TEST_ENDPOINT }}
