@@ -433,6 +433,7 @@ function writeSummary(
   posted: number,
   pending: number
 ): void {
+  // biome-ignore lint/style/useDestructuring: @actions/core Summary methods are class-bound; destructuring detaches them from `this` in the packaged action
   const summary = core.summary;
   summary.addHeading("MastoFeedBot run");
   summary.addTable([
